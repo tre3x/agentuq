@@ -74,6 +74,69 @@ if not ALLOW_SONNET_THINKING:
     logger.warning("Sonnet thinking is disabled")
 
 
+# Provider prefixes that route through an explicitly-configured endpoint.
+AZURE_PROVIDER_PREFIX = "azure/"
+# Locally hosted, OpenAI-compatible servers (vLLM, llama.cpp, TGI, ...) are
+# reached through litellm's "hosted_vllm/" provider, e.g.
+# "hosted_vllm/Qwen3.5-122B-A10B".
+VLLM_PROVIDER_PREFIX = "hosted_vllm/"
+
+
+def inject_provider_credentials(
+    llm: Optional[str], llm_args: dict, role: Optional[str] = None
+) -> None:
+    """Inject endpoint credentials into ``llm_args`` (in place) based on the model's provider.
+
+    Some providers need an explicit ``api_base``/``api_key`` (and ``api_version``
+    for Azure) rather than the default OpenAI routing. Credentials are read from
+    environment variables so they never have to be inlined into ``--*-llm-args``.
+
+    A role-specific variable (suffix ``_AGENT`` or ``_USER``) takes precedence
+    over the generic one, allowing the agent and user simulator to point at
+    different endpoints. Values already present in ``llm_args`` are only used as
+    a fallback for vLLM and are always overridden for Azure (preserving the
+    previous behavior).
+
+    Recognized variables:
+        Azure: ``AZURE_API_KEY``, ``AZURE_API_BASE``, ``AZURE_API_VERSION``
+        vLLM:  ``VLLM_API_BASE``, ``VLLM_API_KEY``
+    """
+    if not llm:
+        return
+
+    suffix = f"_{role.upper()}" if role else ""
+
+    def _env(base_name: str) -> Optional[str]:
+        if suffix:
+            scoped = os.environ.get(f"{base_name}{suffix}")
+            if scoped:
+                return scoped
+        return os.environ.get(base_name)
+
+    if llm.startswith(AZURE_PROVIDER_PREFIX):
+        # litellm may not read AZURE_* env vars correctly when OPENAI_API_KEY is
+        # also set, so pass them explicitly.
+        for arg, env_name in (
+            ("api_key", "AZURE_API_KEY"),
+            ("api_base", "AZURE_API_BASE"),
+            ("api_version", "AZURE_API_VERSION"),
+        ):
+            value = _env(env_name)
+            if value:
+                llm_args[arg] = value
+    elif llm.startswith(VLLM_PROVIDER_PREFIX):
+        for arg, env_name in (
+            ("api_base", "VLLM_API_BASE"),
+            ("api_key", "VLLM_API_KEY"),
+        ):
+            value = _env(env_name)
+            if value:
+                llm_args[arg] = value
+        # The OpenAI client used under the hood requires a non-empty api_key even
+        # when the local server does not authenticate requests.
+        llm_args.setdefault("api_key", "dummy")
+
+
 def _parse_ft_model_name(model: str) -> str:
     """
     Parse the ft model name from the litellm model name.

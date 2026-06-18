@@ -1,5 +1,4 @@
 from typing import Optional, Tuple
-import os
 from loguru import logger
 
 from tau2.data_model.message import (
@@ -21,7 +20,7 @@ from tau2.user.base import (
     is_valid_user_history_message,
 )
 from tau2.utils import DATA_DIR
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import generate, inject_provider_credentials
 
 GLOBAL_USER_SIM_GUIDELINES_DIR = DATA_DIR / "tau2" / "user_simulator"
 
@@ -158,31 +157,8 @@ class UserSimulator(BaseUser):
             state.messages.append(message)
         messages = state.system_messages + state.flip_roles()
 
-        # Explicitly pass Azure credentials to litellm when using Azure models,
-        # because litellm may not correctly read AZURE_* env vars when
-        # OPENAI_API_KEY is also present in the environment.
-        if self.llm.startswith("azure/"):
-            # if "api_key" not in self.llm_args:
-            try:
-                azure_key = os.environ.get("AZURE_API_KEY_USER")
-            except:
-                azure_key = os.environ.get("AZURE_API_KEY")
-            if azure_key:
-                self.llm_args["api_key"] = azure_key
-            # if "api_base" not in self.llm_args:
-            try:
-                azure_base = os.environ.get("AZURE_API_BASE_USER")
-            except:
-                azure_base = os.environ.get("AZURE_API_BASE")
-            if azure_base:
-                self.llm_args["api_base"] = azure_base
-            # if "api_version" not in self.llm_args:
-            try:
-                azure_version = os.environ.get("AZURE_API_VERSION_USER")
-            except:
-                azure_version = os.environ.get("AZURE_API_VERSION")
-            if azure_version:
-                self.llm_args["api_version"] = azure_version
+        # Inject endpoint credentials for Azure / locally-hosted vLLM models.
+        inject_provider_credentials(self.llm, self.llm_args, role="USER")
 
         # Generate response (retry on empty responses)
         assistant_message = None

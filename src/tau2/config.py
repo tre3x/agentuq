@@ -8,6 +8,10 @@ DEFAULT_SAVE_TO = None
 DEFAULT_LOG_LEVEL = "ERROR"
 
 # LLM
+# Any litellm-supported model works for the agent/user LLMs. To use a locally
+# hosted, OpenAI-compatible server (vLLM / llama.cpp / TGI), prefix the model
+# name with "hosted_vllm/" (e.g. "hosted_vllm/Qwen3.5-122B-A10B") and set
+# VLLM_API_BASE / VLLM_API_KEY in the environment. See .env.example.
 DEFAULT_AGENT_IMPLEMENTATION = "llm_agent"
 DEFAULT_USER_IMPLEMENTATION = "user_simulator"
 DEFAULT_LLM_AGENT = "gpt-4.1"

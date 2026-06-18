@@ -61,6 +61,49 @@ tau2 run \
 The key arguments are `logprobs: true` and `top_logprobs: 20`, which enable token-level logprob capture. The UQ summary is automatically embedded in the result JSON.
 In practice, top 5 logprobs almost captures >= 97.5% of probability mass; you can just track top 5 for light caching of artifacts or so.
 
+#### Using a locally hosted LLM (vLLM / llama.cpp / TGI)
+
+Any OpenAI-compatible server can be used as the agent and/or user LLM. Prefix the
+model name with `hosted_vllm/` and point the client at your endpoint via the
+`VLLM_API_BASE` / `VLLM_API_KEY` environment variables (already in `.env.example`):
+
+```bash
+export VLLM_API_BASE="http://nova22-gpu-2:8080/v1"
+export VLLM_API_KEY="dummy"   # any non-empty value if the server has no auth
+
+tau2 run \
+    --domain retail \
+    --agent-llm hosted_vllm/Qwen3.5-122B-A10B \
+    --user-llm hosted_vllm/Qwen3.5-122B-A10B \
+    --num-trials 1 \
+    --output-dir ./results \
+    --agent-llm-args '{"temperature": 0.0, "logprobs": true, "top_logprobs": 20}' \
+    --user-llm-args '{"temperature": 0.0}'
+```
+
+Append `_AGENT` or `_USER` to the env vars (e.g. `VLLM_API_BASE_AGENT`) to point the
+agent and user simulator at different endpoints. Credentials can also be passed
+inline via `--agent-llm-args '{"api_base": "...", "api_key": "..."}'`. Token-level
+logprob UQ requires that the server expose `logprobs`/`top_logprobs` (vLLM does).
+
+**Disabling reasoning (Qwen3 / hybrid-thinking models).** Reasoning models emit
+their chain-of-thought separately (it is ignored by the agent, which only uses
+`content`/`tool_calls`), but the thinking tokens add latency/cost and can starve
+short answers when `max_tokens` is small. Turn thinking off by passing
+`chat_template_kwargs` in the LLM args:
+
+```bash
+tau2 run \
+    --domain retail \
+    --agent-llm hosted_vllm/Qwen3.5-122B-A10B \
+    --user-llm hosted_vllm/Qwen3.5-122B-A10B \
+    --agent-llm-args '{"temperature": 0.0, "chat_template_kwargs": {"enable_thinking": false}, "logprobs": true, "top_logprobs": 20}' \
+    --user-llm-args '{"temperature": 0.0, "chat_template_kwargs": {"enable_thinking": false}}'
+```
+
+Use `enable_thinking` specifically — `reasoning_effort` is ignored by some
+servers (including the llama.cpp backend tested here).
+
 ### 2. Extract and analyze UQ data
 
 ```bash

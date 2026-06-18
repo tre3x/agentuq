@@ -1,6 +1,5 @@
 from copy import deepcopy
 from typing import List, Optional
-import os
 from loguru import logger
 from pydantic import BaseModel
 
@@ -19,7 +18,7 @@ from tau2.data_model.message import (
 )
 from tau2.data_model.tasks import Action, Task
 from tau2.environment.tool import Tool, as_tool
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import generate, inject_provider_credentials
 
 AGENT_INSTRUCTION = """
 You are a customer service agent that helps the user according to the <policy> provided below.
@@ -106,28 +105,8 @@ class LLMAgent(LocalAgent[LLMAgentState]):
             state.messages.append(message)
         messages = state.system_messages + state.messages
 
-        if self.llm.startswith("azure/"):
-            # if "api_key" not in self.llm_args:
-            try:
-                azure_key = os.environ.get("AZURE_API_KEY_AGENT")
-            except:
-                azure_key = os.environ.get("AZURE_API_KEY")
-            if azure_key:
-                self.llm_args["api_key"] = azure_key
-            # if "api_base" not in self.llm_args:
-            try:
-                azure_base = os.environ.get("AZURE_API_BASE_AGENT")
-            except:
-                azure_base = os.environ.get("AZURE_API_BASE")
-            if azure_base:
-                self.llm_args["api_base"] = azure_base
-            # if "api_version" not in self.llm_args:
-            try:
-                azure_version = os.environ.get("AZURE_API_VERSION_AGENT")
-            except:
-                azure_version = os.environ.get("AZURE_API_VERSION")
-            if azure_version:
-                self.llm_args["api_version"] = azure_version
+        # Inject endpoint credentials for Azure / locally-hosted vLLM models.
+        inject_provider_credentials(self.llm, self.llm_args, role="AGENT")
 
         assistant_message = generate(
             model=self.llm,
@@ -258,31 +237,8 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
             state.messages.append(message)
         messages = state.system_messages + state.messages
 
-        # Explicitly pass Azure credentials to litellm when using Azure models,
-        # because litellm may not correctly read AZURE_* env vars when
-        # OPENAI_API_KEY is also present in the environment.
-        if self.llm.startswith("azure/"):
-            # if "api_key" not in self.llm_args:
-            try:
-                azure_key = os.environ.get("AZURE_API_KEY_AGENT")
-            except:
-                azure_key = os.environ.get("AZURE_API_KEY")
-            if azure_key:
-                self.llm_args["api_key"] = azure_key
-            # if "api_base" not in self.llm_args:
-            try:
-                azure_base = os.environ.get("AZURE_API_BASE_AGENT")
-            except:
-                azure_base = os.environ.get("AZURE_API_BASE")
-            if azure_base:
-                self.llm_args["api_base"] = azure_base
-            # if "api_version" not in self.llm_args:
-            try:
-                azure_version = os.environ.get("AZURE_API_VERSION_AGENT")
-            except:
-                azure_version = os.environ.get("AZURE_API_VERSION")
-            if azure_version:
-                self.llm_args["api_version"] = azure_version
+        # Inject endpoint credentials for Azure / locally-hosted vLLM models.
+        inject_provider_credentials(self.llm, self.llm_args, role="AGENT")
 
         assistant_message = generate(
             model=self.llm,
@@ -504,6 +460,10 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         else:
             state.messages.append(message)
         messages = state.system_messages + state.messages
+
+        # Inject endpoint credentials for Azure / locally-hosted vLLM models.
+        inject_provider_credentials(self.llm, self.llm_args, role="AGENT")
+
         assistant_message = generate(
             model=self.llm,
             tools=self.tools,
