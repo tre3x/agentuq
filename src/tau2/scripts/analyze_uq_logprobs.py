@@ -156,7 +156,9 @@ def analyze_uq_logprobs(input_path: Path, output_dir: Path) -> None:
         )
 
     trajectory_rows = []
-    for (domain, task_id, trial, seed, scorer, role), agg in sorted(traj_aggs.items()):
+    for (domain, task_id, trial, seed, scorer, role), agg in sorted(
+        traj_aggs.items(), key=lambda kv: tuple((x is None, str(x)) for x in kv[0])
+    ):
         num_tokens = agg["num_tokens"]
         mean_entropy = (
             agg["sum_entropy"] / num_tokens if num_tokens > 0 else None
@@ -186,7 +188,9 @@ def analyze_uq_logprobs(input_path: Path, output_dir: Path) -> None:
         base_key = traj_key[:5]  # (domain, task_id, trial, seed, scorer)
         task_roles.setdefault(base_key, []).append((traj_key, agg))
 
-    for base_key, role_entries in sorted(task_roles.items()):
+    for base_key, role_entries in sorted(
+        task_roles.items(), key=lambda kv: tuple((x is None, str(x)) for x in kv[0])
+    ):
         if len(role_entries) < 2:
             continue
         domain, task_id, trial, seed, scorer = base_key
