@@ -142,20 +142,45 @@ tau2 evaluate-uq \
     --output-dir ./uq_eval
 ```
 
-This outputs AUROC, AUARC, and correlation metrics measuring how well uncertainty predicts task failure. (Metrics need a reasonable sample to be meaningful — run a few dozen tasks, not a handful; with only a few simulations AUROC may be `null`.)
+To evaluate a specific token-level metric produced by the analyze step (Step 2) instead, use `csv` mode with the trajectory summary:
+
+```bash
+tau2 evaluate-uq \
+    --mode csv \
+    --uq-trajectory-csv ./uq_analysis/uq_trajectory_summary.csv \
+    --results data/simulations/gpt-4.1_retail.json \
+    --output-dir ./uq_eval \
+    --uncertainty-column avg_token_nll
+```
+
+Both output AUROC, AUARC, and correlation metrics measuring how well uncertainty predicts task failure. (Metrics need a reasonable sample to be meaningful — run a few dozen tasks, not a handful; with only a few simulations AUROC may be `null`.)
 
 ### 4. Score observation uncertainty
+
+This replays each conversation and scores how "surprising" each observation (user message or tool result) was from the agent's perspective, by teacher-forcing the observation text and reading its logprobs. In `agent_llm` mode the scorer defaults to the run's own agent LLM and system prompt:
 
 ```bash
 tau2 score-observation-uq \
     --results data/simulations/gpt-4.1_retail.json \
     --output-dir ./uq_obs \
     --scorer-mode agent_llm \
-    --scorer-api-base http://127.0.0.1:8000/v1 \
-    --rescore-backend chat_replay
+    --rescore-backend completion_echo
 ```
 
-This replays each conversation and scores how "surprising" each observation was from the agent's perspective.
+For a local OpenAI-compatible server, point the scorer at it explicitly (use the **bare** model name — no `hosted_vllm/` prefix, since the scorer issues raw OpenAI-style requests):
+
+```bash
+tau2 score-observation-uq \
+    --results data/simulations/qwen3_retail.json \
+    --output-dir ./uq_obs \
+    --scorer-mode agent_llm \
+    --scorer-llm Qwen3.5-122B-A10B \
+    --scorer-api-base http://nova22-gpu-2:8081/v1 \
+    --scorer-api-key dummy \
+    --rescore-backend completion_echo
+```
+
+> **Endpoint requirement:** unlike the other steps, observation scoring needs *teacher-forced* (prompt) logprobs — `logprobs` + `echo` on `/v1/completions` (`completion_echo`), or full chat replay logprobs (`chat_replay`). Real vLLM supports this; some llama.cpp / Ollama-style servers do **not** (they only return logprobs for freshly generated chat tokens), in which case every observation reports `observations_failed` and `rows_written: 0`.
 
 --- 
 
