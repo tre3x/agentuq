@@ -53,7 +53,7 @@ tau2 run \
     --agent-llm gpt-4.1 \
     --user-llm gpt-4.1 \
     --num-trials 1 \
-    --output-dir ./results \
+    --save-to gpt-4.1_retail \
     --agent-llm-args '{"logprobs": true, "top_logprobs": 20}' \
     --user-llm-args '{"logprobs": true, "top_logprobs": 20}'
 ```
@@ -76,7 +76,7 @@ tau2 run \
     --agent-llm hosted_vllm/Qwen3.5-122B-A10B \
     --user-llm hosted_vllm/Qwen3.5-122B-A10B \
     --num-trials 1 \
-    --output-dir ./results \
+    --save-to qwen3_retail \
     --agent-llm-args '{"temperature": 0.0, "logprobs": true, "top_logprobs": 20}' \
     --user-llm-args '{"temperature": 0.0}'
 ```
@@ -109,7 +109,7 @@ servers (including the llama.cpp backend tested here).
 ```bash
 # Extract token-level data into sidecar JSONL files
 tau2 extract-uq-from-trajs \
-    --results ./results/gpt-4.1_retail.json \
+    --results data/simulations/gpt-4.1_retail.json \
     --output-dir ./uq_logprobs
 
 # Aggregate into per-turn and per-trajectory summaries
@@ -123,7 +123,7 @@ tau2 analyze-uq-logprobs \
 ```bash
 tau2 evaluate-uq \
     --mode embedded \
-    --results ./results/gpt-4.1_retail.json \
+    --results data/simulations/gpt-4.1_retail.json \
     --output-dir ./uq_eval
 ```
 
@@ -133,7 +133,7 @@ This outputs AUROC, AUARC, and correlation metrics measuring how well uncertaint
 
 ```bash
 tau2 score-observation-uq \
-    --results ./results/gpt-4.1_retail.json \
+    --results data/simulations/gpt-4.1_retail.json \
     --output-dir ./uq_obs \
     --scorer-mode agent_llm \
     --scorer-api-base http://127.0.0.1:8000/v1 \
