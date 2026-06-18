@@ -138,7 +138,7 @@ For a live run, evaluate the embedded per-simulation `uq_summary` directly — n
 ```bash
 tau2 evaluate-uq \
     --mode embedded \
-    --results data/simulations/gpt-4.1_retail.json \
+    --results data/simulations/qwen3_retail.json \
     --output-dir ./uq_eval
 ```
 
@@ -148,7 +148,7 @@ To evaluate a specific token-level metric produced by the analyze step (Step 2) 
 tau2 evaluate-uq \
     --mode csv \
     --uq-trajectory-csv ./uq_analysis/uq_trajectory_summary.csv \
-    --results data/simulations/gpt-4.1_retail.json \
+    --results data/simulations/qwen3_retail.json \
     --output-dir ./uq_eval \
     --uncertainty-column avg_token_nll
 ```
