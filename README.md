@@ -104,21 +104,36 @@ tau2 run \
 Use `enable_thinking` specifically — `reasoning_effort` is ignored by some
 servers (including the llama.cpp backend tested here).
 
-### 2. Extract and analyze UQ data
+### 2. Locate and analyze UQ data
+
+A run with `logprobs` enabled **already captures everything** — there is no extraction step for live runs:
+
+- **Token-level logprobs** are written live to sidecar JSONL files under `data/uq_logprobs/` (one file per task/trial) and stripped out of the trajectory JSON to keep it small.
+- **Trajectory-level summaries** (`uq_summary`) are embedded per-simulation in the result JSON.
+
+To aggregate the token-level sidecars into per-turn / per-trajectory summaries:
 
 ```bash
-# Extract token-level data into sidecar JSONL files
-tau2 extract-uq-from-trajs \
-    --results data/simulations/gpt-4.1_retail.json \
-    --output-dir ./uq_logprobs
-
-# Aggregate into per-turn and per-trajectory summaries
 tau2 analyze-uq-logprobs \
-    --input ./uq_logprobs \
+    --input data/uq_logprobs \
     --output-dir ./uq_analysis
 ```
 
+> `data/uq_logprobs/` accumulates sidecars across **all** runs. To analyze a single run in isolation, copy just that run's files (named `logprobs_<task>_trial<n>_seed<seed>.jsonl`) into a separate directory and point `--input` at it.
+
+**Backfilling old trajectories.** `extract-uq-from-trajs` is only for trajectories that were *not* captured with logprobs — live runs strip them into the sidecars above, so a live run yields `rows_written: 0` (nothing left to extract). Use it with `--rescore-missing` to regenerate logprobs via additional inference against an OpenAI-compatible endpoint:
+
+```bash
+tau2 extract-uq-from-trajs \
+    --results data/simulations/gpt-4.1_retail.json \
+    --output-dir ./uq_logprobs \
+    --rescore-missing \
+    --rescore-api-base http://127.0.0.1:8000/v1
+```
+
 ### 3. Evaluate UQ estimates
+
+For a live run, evaluate the embedded per-simulation `uq_summary` directly — no extract/analyze step required:
 
 ```bash
 tau2 evaluate-uq \
@@ -127,7 +142,7 @@ tau2 evaluate-uq \
     --output-dir ./uq_eval
 ```
 
-This outputs AUROC, AUARC, and correlation metrics measuring how well uncertainty predicts task failure.
+This outputs AUROC, AUARC, and correlation metrics measuring how well uncertainty predicts task failure. (Metrics need a reasonable sample to be meaningful — run a few dozen tasks, not a handful; with only a few simulations AUROC may be `null`.)
 
 ### 4. Score observation uncertainty
 

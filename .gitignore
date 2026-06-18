@@ -15,6 +15,11 @@ data/models/
 model/
 data/analyses/
 uqresults/
+data/uq_logprobs/
+uq_logprobs/
+uq_analysis/
+uq_eval/
+uq_obs/
 reports/
 src/experiments/model_serving/vllm_serving/.*
 .ruff_cache

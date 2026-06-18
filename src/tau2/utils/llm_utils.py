@@ -135,6 +135,17 @@ def inject_provider_credentials(
         # The OpenAI client used under the hood requires a non-empty api_key even
         # when the local server does not authenticate requests.
         llm_args.setdefault("api_key", "dummy")
+        # Without a resolvable api_base, litellm routes hosted_vllm to a default
+        # endpoint and fails with an opaque 404 (NotFoundError). Surface a clear,
+        # actionable warning naming the env var to set. litellm also honors the
+        # native HOSTED_VLLM_API_BASE, so only warn when neither is available.
+        if "api_base" not in llm_args and not os.environ.get("HOSTED_VLLM_API_BASE"):
+            logger.warning(
+                f"Model '{llm}' uses the vLLM provider but no api_base was resolved. "
+                f"Set VLLM_API_BASE{f'_{role.upper()}' if role else ''} "
+                "(e.g. http://host:8000/v1), pass `api_base` in the LLM args, or set "
+                "HOSTED_VLLM_API_BASE. Requests will otherwise fail with a 404."
+            )
 
 
 def _parse_ft_model_name(model: str) -> str:
